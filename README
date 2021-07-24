@@ -1,0 +1,23 @@
+# A BDD-based Boolean Function Complementation Method
+
+## description: 
+this is the programming assignment 2 of VE527 @ UM-SJTU Joint Institute.
+the purpose of this assignment is to implement the algorithm of finding Complement
+
+## algorithm:
+please note that the algorithm used in this implementation is not the same as the project description and thus does not necessarily has the exact same output.
+
+and my algorithm is as following:
+
+1. read the sop from input file
+2. convert the SOP to BDD
+3. change all the leaf node 0 to 1, and 1 to 0
+4. convert the BDD back to SOP.
+
+## remark
+the contribution of this implementation contains:
+1. a extention of the original SOP to BDD function in `abc`, implemented using c++11 standard.
+2. implement few effective algorithms to reduce the size of SOP, includes:
+    - minterm hashing
+    - better purning strategy
+    - more accurate entropy calculation (finding the best pivot)

@@ -1,3 +1,9 @@
+/**
+ * author: Wang Hanyu
+ * date: 2021-07-24
+ * description: a c++11 standard implementation of sop to bdd.
+ */
+
 #include "p2.h"
 
 static const char BOOLEAN_CHAR[4] = "01-";
@@ -33,14 +39,50 @@ auto sop_is_tautology ( const SOP & sop,
      * @param entry_list: the entries left in the sop
      */
     for (auto entry : entry_list) {
-        bool flag = true;
+        bool flag1 = true; // flag 1: contains all don't cares
         for (auto var : var_list)
-            if (sop[entry][var] != DONTCARE) flag = false;
-        if (flag) return true;
+            if (sop[entry][var] != DONTCARE) flag1 = false;
+        if (flag1) return true;
     }
     return false;
 }
 
+auto cube_to_string ( const CUBE & cube, const VAR_LIST & var_list ) {
+    string cube_str = "";
+    for (auto var : var_list) {
+        auto val = cube[var];
+        cube_str += BOOLEAN_CHAR[val];
+    }
+    return cube_str;
+}
+
+ostream & operator << (ostream & os, const CUBE & cube) {
+    for (auto val : cube)
+        os << BOOLEAN_CHAR[val];
+    os << endl;
+    return os;
+}
+
+ostream & operator << (ostream & os, const SOP & sop) {
+    for (auto cube : sop)
+        os << cube;
+    return os;
+}
+
+auto unique_entries   ( const SOP & sop, 
+                        const VAR_LIST & var_list, 
+                        const ENTRY_LIST & entry_list ) {
+    ENTRY_LIST unique_entry_list;
+    unordered_set<string> cube_list;
+    for (auto entry : entry_list) {
+        auto cube_str = cube_to_string(sop[entry], var_list);
+        if (cube_list.find(cube_str) == cube_list.end()) {
+            unique_entry_list.push_back(entry);
+            cube_list.insert(cube_str);
+        }
+    }
+    return unique_entry_list;
+}
 auto find_pivot       ( const SOP & sop, 
                         const VAR_LIST & var_list, 
                         const ENTRY_LIST & entry_list ) {
@@ -54,9 +96,14 @@ auto find_pivot       ( const SOP & sop,
         double pos_cube = 0.1; // avoid log 0
         double neg_cube = 0.1; // avoid log 0
         double tot_cube = (double)entry_list.size();
-        for (auto entry : entry_list) {
-            if (sop[entry][var] != FALSE) pos_cube+=1.0;
-            if (sop[entry][var] != TRUE)  neg_cube+=1.0;
+        unordered_set<string> hash_table; // hashing
+        for (auto entry : entry_list)
+            hash_table.insert(cube_to_string(sop[entry], var_list));
+        VAR pivot_pos = 0;
+        for (;var_list[pivot_pos]!=var;pivot_pos++){}
+        for (auto cube : hash_table) {
+            if (cube[pivot_pos] != '0') pos_cube+=1.0;
+            if (cube[pivot_pos] != '1') neg_cube+=1.0;
         }
         return tuple<double, double>( pos_cube / (pos_cube+neg_cube),
                                         tot_cube*log(tot_cube) 
@@ -131,9 +178,9 @@ void sop_to_bdd       ( unique_ptr<ROBDD::BNode> & root,
     root = make_unique<ROBDD::BNode>(get<1>(result));
     root->var = pivot;
     auto splited_sop = split_with_pivot(pivot, sop, var_list, entry_list);
-    auto pos_entry_list = get<0>(splited_sop);
-    auto neg_entry_list = get<1>(splited_sop);
     auto new_var_list = get_new_var_list(pivot, var_list);
+    auto pos_entry_list = unique_entries(sop, new_var_list, get<0>(splited_sop));
+    auto neg_entry_list = unique_entries(sop, new_var_list, get<1>(splited_sop));
     sop_to_bdd(root->l0, sop, new_var_list, neg_entry_list);
     sop_to_bdd(root->l1, sop, new_var_list, pos_entry_list);
 }
@@ -180,16 +227,12 @@ void complement(ROBDD & bdd) {
     bdd_to_sop(bdd);
 }
 
-ostream & operator << (ostream & os, const ROBDD & bdd)
-{
+ostream & operator << (ostream & os, const ROBDD & bdd) {
     unordered_set<string> ans; // hashing
     os << bdd.num_var << endl;
-    for (auto cube : bdd.data) {
-        string cube_str = "";
-        for (auto var : cube)
-            cube_str += BOOLEAN_CHAR[var];
-        ans.insert(cube_str);
-    }
+    auto var_list = get_var_list(bdd);
+    for (auto cube : bdd.data)
+        ans.insert(cube_to_string(cube, var_list));
     for (auto cube : ans)
         os << cube << endl;
     return os;
